@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>職業病記憶配對遊戲</title>
+<style>
+  :root {
+    --bg-start: #1e3c72;
+    --bg-end: #2a5298;
+    --back-start: #ff7e5f;
+    --back-end: #feb47b;
+    --match-glow: #00FF66;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  body {
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
+    background: linear-gradient(160deg, var(--bg-start) 0%, var(--bg-end) 100%);
+    background-attachment: fixed;
+    color: #f0f4ff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  }
+
+  h1 .emoji {
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.4));
+  }
+
+  p.subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #cfe0ff;
+    opacity: 0.85;
+  }
+
+  .scoreboard {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+    padding: 10px 20px;
+    min-width: 110px;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+  }
+
+  .stat .label {
+    display: block;
+    font-size: 0.75rem;
+    opacity: 0.75;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .stat .value {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  #restart-btn {
+    align-self: center;
+    padding: 10px 22px;
+    min-width: 110px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e2a4a;
+    background: linear-gradient(135deg, #ffe259, #ffa751);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  #restart-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  }
+
+  #restart-btn:active {
+    transform: translateY(0px) scale(0.97);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
+    max-width: 460px;
+  }
+
+  .card {
+    aspect-ratio: 2 / 3;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+
+  .card.matched,
+  .card.locked {
+    cursor: default;
+  }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .card.flipped .card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .card.mismatch .card-inner {
+    animation: shake 0.45s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: rotateY(180deg) translateX(0); }
+    25% { transform: rotateY(180deg) translateX(-6px); }
+    75% { transform: rotateY(180deg) translateX(6px); }
+  }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  }
+
+  .card-back {
+    background: linear-gradient(135deg, var(--back-start), var(--back-end));
+    font-size: clamp(1.8rem, 8vw, 2.6rem);
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    border: 2px solid rgba(255,255,255,0.35);
+  }
+
+  .card-front {
+    background: #ffffff;
+    transform: rotateY(180deg);
+    border: 2px solid rgba(255,255,255,0.6);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .card-front img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .card.matched .card-front {
+    border: 3px solid var(--match-glow);
+    box-shadow: 0 0 12px var(--match-glow), 0 0 24px rgba(0,255,102,0.35);
+  }
+
+  .card.matched .card-back {
+    border: 3px solid var(--match-glow);
+    box-shadow: 0 0 12px var(--match-glow);
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    text-align: center;
+  }
+
+  /* Win overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 16, 36, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    z-index: 10;
+  }
+
+  .overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .win-card {
+    background: linear-gradient(160deg, #223a6b, #2f5a9e);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 36px 32px;
+    text-align: center;
+    max-width: 340px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    transform: scale(0.85) translateY(10px);
+    transition: transform 0.35s ease;
+  }
+
+  .overlay.show .win-card {
+    transform: scale(1) translateY(0);
+  }
+
+  .win-card h2 {
+    margin: 0 0 12px;
+    font-size: 1.6rem;
+  }
+
+  .win-card p {
+    margin: 6px 0 20px;
+    color: #dfe9ff;
+    font-size: 0.95rem;
+  }
+
+  .win-card button {
+    padding: 10px 26px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e2a4a;
+    background: linear-gradient(135deg, #ffe259, #ffa751);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  .win-card button:hover {
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 380px) {
+    .board {
+      gap: 10px;
+    }
+    .stat {
+      min-width: 90px;
+      padding: 8px 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="emoji">🧠</span> 職業病記憶配對遊戲</h1>
+  <p class="subtitle">翻開卡片，找出相同的職業病圖示，訓練你的短期記憶力！</p>
+</header>
+
+<div class="scoreboard">
+  <div class="stat">
+    <span class="label">步數</span>
+    <span class="value" id="moves">0</span>
+  </div>
+  <div class="stat">
+    <span class="label">配對成功</span>
+    <span class="value" id="matches">0 / 6</span>
+  </div>
+</div>
+
+<button id="restart-btn">🔄 重新開始</button>
+
+<div class="board" id="board"></div>
+
+<footer>3 × 4 記憶翻牌遊戲・以純 HTML / CSS / JavaScript 打造</footer>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <h2>🎉 恭喜你通關了！</h2>
+    <p>你總共花了 <strong id="final-moves">0</strong> 步完成配對。</p>
+    <button id="play-again-btn">再玩一次</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // 卡片圖示資料：職業病主題（圖片內已含病名文字）
+  const ICONS = [
+    { id: "carpal_tunnel",           name: "腕隧道症候群",     src: "images/carpal_tunnel.webp" },
+    { id: "lumbar_disc",             name: "椎間盤突出",       src: "images/lumbar_disc.webp" },
+    { id: "epicondylitis",           name: "上髁炎",           src: "images/epicondylitis.webp" },
+    { id: "pneumoconiosis",          name: "塵肺症",           src: "images/pneumoconiosis.webp" },
+    { id: "rotator_cuff",            name: "旋轉肌袖",         src: "images/rotator_cuff.webp" },
+    { id: "cardio_cerebrovascular",  name: "腦心血管疾病",     src: "images/cardio_cerebrovascular.webp" }
+  ];
+
+  const boardEl = document.getElementById("board");
+  const movesEl = document.getElementById("moves");
+  const matchesEl = document.getElementById("matches");
+  const restartBtn = document.getElementById("restart-btn");
+  const overlayEl = document.getElementById("overlay");
+  const finalMovesEl = document.getElementById("final-moves");
+  const playAgainBtn = document.getElementById("play-again-btn");
+
+  const TOTAL_PAIRS = ICONS.length; // 6
+
+  let moves = 0;
+  let matchedCount = 0;
+  let flippedCards = [];   // currently face-up, unmatched cards (max 2)
+  let boardLocked = false; // true while comparing a mismatched pair
+
+  // Fisher-Yates 洗牌演算法
+  function shuffle(array) {
+    const a = array.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function buildDeck() {
+    const deck = shuffle([...ICONS, ...ICONS]);
+    return deck.map((icon, index) => ({ ...icon, uid: index }));
+  }
+
+  function createCardElement(card) {
+    const cardEl = document.createElement("div");
+    cardEl.className = "card";
+    cardEl.dataset.iconId = card.id;
+    cardEl.dataset.uid = card.uid;
+
+    cardEl.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-back">❓</div>
+        <div class="card-face card-front">
+          <img src="${card.src}" alt="${card.name}" draggable="false">
+        </div>
+      </div>
+    `;
+
+    cardEl.addEventListener("click", () => onCardClick(cardEl));
+    return cardEl;
+  }
+
+  function renderBoard() {
+    boardEl.innerHTML = "";
+    const deck = buildDeck();
+    deck.forEach((card) => {
+      boardEl.appendChild(createCardElement(card));
+    });
+  }
+
+  function updateScoreboard() {
+    movesEl.textContent = String(moves);
+    matchesEl.textContent = `${matchedCount} / ${TOTAL_PAIRS}`;
+  }
+
+  function onCardClick(cardEl) {
+    if (boardLocked) return;
+    if (cardEl.classList.contains("flipped")) return;
+    if (cardEl.classList.contains("matched")) return;
+    if (flippedCards.length >= 2) return;
+
+    cardEl.classList.add("flipped");
+    flippedCards.push(cardEl);
+
+    if (flippedCards.length === 2) {
+      moves += 1;
+      updateScoreboard();
+      evaluatePair();
+    }
+  }
+
+  function evaluatePair() {
+    const [first, second] = flippedCards;
+    const isMatch = first.dataset.iconId === second.dataset.iconId;
+
+    if (isMatch) {
+      first.classList.add("matched");
+      second.classList.add("matched");
+      matchedCount += 1;
+      updateScoreboard();
+      flippedCards = [];
+
+      if (matchedCount === TOTAL_PAIRS) {
+        setTimeout(showWin, 500);
+      }
+    } else {
+      boardLocked = true;
+      first.classList.add("mismatch");
+      second.classList.add("mismatch");
+
+      setTimeout(() => {
+        first.classList.remove("flipped", "mismatch");
+        second.classList.remove("flipped", "mismatch");
+        flippedCards = [];
+        boardLocked = false;
+      }, 1000);
+    }
+  }
+
+  function showWin() {
+    finalMovesEl.textContent = String(moves);
+    overlayEl.classList.add("show");
+  }
+
+  function hideWin() {
+    overlayEl.classList.remove("show");
+  }
+
+  function resetGame() {
+    moves = 0;
+    matchedCount = 0;
+    flippedCards = [];
+    boardLocked = false;
+    hideWin();
+    updateScoreboard();
+    renderBoard();
+  }
+
+  restartBtn.addEventListener("click", resetGame);
+  playAgainBtn.addEventListener("click", resetGame);
+
+  // 初始化
+  resetGame();
+})();
+</script>
+
+</body>
+</html>

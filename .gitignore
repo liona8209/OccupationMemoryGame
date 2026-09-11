@@ -1,0 +1,6 @@
+# 原始高解析度圖片（未壓縮，僅供製作素材參考，遊戲實際使用 images/ 內的壓縮版本）
+/Image/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
